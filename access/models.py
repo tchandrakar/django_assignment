@@ -24,6 +24,9 @@ class ShipmentDetails(models.Model):
     country_code = models.TextField()
     email = models.TextField(default=None)
 
+class ShipmentIdSyncStatus(models.Model):
+    shipment_id = models.BigIntegerField()
+    sync_in_progress = models.BooleanField()
 
 class ShipmentItem(models.Model):
     shipment_id = models.ForeignKey(ShipmentDetails, to_field='shipment_id', on_delete=models.CASCADE)

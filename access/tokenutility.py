@@ -1,3 +1,5 @@
+from asgiref.sync import sync_to_async
+
 from .models import SellerToken
 from datetime import datetime
 import http.client
@@ -35,7 +37,7 @@ def getLatestToken():
 
 def getActiveToken():
     latestToken = getLatestToken()
-    if(latestToken.expiry_time  <= datetime.datetime.now(tz=timezone.utc)):
+    if latestToken.expiry_time <= datetime.datetime.now(tz=timezone.utc):
         updateToken(generateNewToken())
         latestToken = getLatestToken()
     return latestToken

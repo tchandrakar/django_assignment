@@ -19,7 +19,8 @@ def test(request):
 
 def startSync(request):
     syncStatus = syncAllShipments()
-    return HttpResponse("Triggered sync. Status = "+syncStatus)
+    response = "Triggered sync. Status = "+syncStatus
+    return HttpResponse(response)
 
 def getShipmentDetail(request, shipmentId):
     getShipmentDetailFromDB(shipmentId)

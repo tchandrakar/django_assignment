@@ -1,6 +1,11 @@
 import http.client
+
+from asgiref.sync import sync_to_async
+from django.db.models.signals import post_save
+from django.dispatch import receiver
+
 from .tokenutility import getActiveToken
-from .models import ShipmentDetails, ShipmentItem, SyncStatus
+from .models import ShipmentDetails, ShipmentItem, SyncStatus, ShipmentIdSyncStatus
 import json
 
 
@@ -44,11 +49,21 @@ def updateSellerShipmentData(jsonData):
 
     return ()
 
-
 def getAndSaveShipmentDetails(shipmentId):
-    updateSellerShipmentData(getShipmentDetails(shipmentId))
-    return ()
+    shipmentIds = ShipmentIdSyncStatus.objects
+    if shipmentIds.exists():
+        shipmentIds.filter(shipment_id=shipmentId).delete()
+    ShipmentIdSyncStatus(shipment_id=shipmentId, sync_in_progress=1).save()
+    # updateSellerShipmentData(getShipmentDetails(shipmentId))
+    return '{} Shipment Synced!'.format(shipmentId)
 
+@receiver(post_save, sender=ShipmentIdSyncStatus)
+def addInShipmentDetails(sender, **kwargs):
+    for i in ShipmentIdSyncStatus.objects.all():
+        if i.sync_in_progress:
+            updateSellerShipmentData(getShipmentDetails(i.shipment_id))
+            i.sync_in_progress = False
+            i.save()
 
 def getShipmentDetails(shipmentId):
     conn = http.client.HTTPSConnection("api.bol.com")
@@ -69,4 +84,4 @@ def getShipmentDetails(shipmentId):
 def getShipmentDetailFromDB(shipmentId):
     shipmentDetail = ShipmentDetails.object.filter(shipmentId=shipmentId).first()
     shipmentItems = ShipmentItem.objects.filter(shipmentId=shipmentId)
-    return json.dumps(shipmentDetail.__dict__)
+    return json.dumps(dict(shipmentDetail).add("shipmentItems", shipmentItems))
