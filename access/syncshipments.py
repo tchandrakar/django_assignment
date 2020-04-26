@@ -2,8 +2,9 @@ import http.client
 from .tokenutility import getActiveToken
 from .models import SyncStatus
 import json
-from datetime import datetime
+from datetime import datetime, timedelta
 from .tasks import sync_shipment_details
+import time
 
 
 def getSellerShipments(page, fulfilment_method):
@@ -17,22 +18,25 @@ def getSellerShipments(page, fulfilment_method):
         'Accept': 'application/vnd.retailer.v3+json',
         'Authorization': authHeader
     }
-    queryParams = '?page='+page+'&fulfilment-method='+fulfilment_method
+    queryParams = '?page=' + page + '&fulfilment-method=' + fulfilment_method
     path = "/retailer/shipments" + queryParams
     print(path)
     conn.request("GET", path, payload, headers)
     res = conn.getresponse()
     jsonData = json.loads(res.read().decode("utf-8"))
     print(jsonData)
-    if(jsonData != None):
+    if (dict(jsonData).__contains__('shipments')):
         return jsonData['shipments']
     else:
         return ()
 
+
 def syncAllShipments():
     def getAllShipmentPages(page, type):
+        count = page
+        start = datetime.now
         paginatedShipments = getSellerShipments(page, type)
-        while (paginatedShipments != None):
+        while len(paginatedShipments) is not 0:
             # Sync to RabbitMq
             for i in paginatedShipments:
                 shipmentid = i['shipmentId']
@@ -40,23 +44,26 @@ def syncAllShipments():
                 sync_shipment_details(shipmentid)
 
             page += 1
+            now = datetime.now
+            if page - count >= 6 and now <= start + timedelta.min(1):
+                time.sleep(timedelta.min(1))
+                count = page
+                start = datetime.now
             paginatedShipments = getSellerShipments(page, type)
 
-
     def updateSyncStatus():
-        latestSyncStatus = SyncStatus.objects.latest()
+        latestSyncStatus = SyncStatus.objects.latest("id")
         latestSyncStatus.sync_in_progress = False
-        latestSyncStatus.sync_end_time = datetime.now
+        latestSyncStatus.sync_end_time = datetime.now()
         latestSyncStatus.save()
 
     def addNewSyncStatus():
-        now = datetime.now
-        SyncStatus(sync_in_progress=True, sync_start_time=now, sync_end_time=None)
+        newSyncStatus = SyncStatus(sync_in_progress=True, sync_start_time=datetime.now())
+        newSyncStatus.save()
 
     syncStatus = SyncStatus.objects
-    if(syncStatus.exists() and syncStatus.latest("id").sync_in_progress):
+    if (syncStatus.exists() and syncStatus.latest("id").sync_in_progress):
         return "Sync is in progress"
-
 
     addNewSyncStatus()
     getAllShipmentPages(1, "FBR")

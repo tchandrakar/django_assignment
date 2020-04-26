@@ -9,7 +9,7 @@ class SyncStatus(models.Model):
     id = models.AutoField(primary_key=True)
     sync_in_progress = models.BooleanField()
     sync_start_time = models.DateTimeField()
-    sync_end_time = models.DateTimeField()
+    sync_end_time = models.DateTimeField(default=None, blank=True, null=True)
 
 class ShipmentDetails(models.Model):
     shipment_id = models.BigIntegerField(primary_key=True)
@@ -27,7 +27,7 @@ class ShipmentDetails(models.Model):
 
 class ShipmentItem(models.Model):
     shipment_id = models.ForeignKey(ShipmentDetails, to_field='shipment_id', on_delete=models.CASCADE)
-    order_item_id = models.BigIntegerField()
+    order_item_id = models.TextField()
     order_id = models.BigIntegerField()
     order_date = models.DateTimeField()
     latest_delivery_date = models.DateTimeField()
